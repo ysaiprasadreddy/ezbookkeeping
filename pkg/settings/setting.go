@@ -25,6 +25,10 @@ const (
 // SystemMode represents running mode of system
 type SystemMode string
 
+// Login rate limit configuration
+var LoginRateLimit = 5
+var LoginRateWindowSeconds = 60
+
 // System running modes
 const (
 	MODE_DEVELOPMENT SystemMode = "development"
@@ -338,6 +342,14 @@ type Config struct {
 	ExchangeRatesRequestTimeoutExceedDefaultValue bool
 	ExchangeRatesProxy                            string
 	ExchangeRatesSkipTLSVerify                    bool
+
+	// Login rate limit
+	LoginRateLimit LoginRateLimitConfig
+}
+
+type LoginRateLimitConfig struct {
+	Limit         int
+	WindowSeconds int
 }
 
 // LoadConfiguration loads setting config from given config file path
@@ -453,7 +465,15 @@ func LoadConfiguration(configFilePath string) (*Config, error) {
 		return nil, err
 	}
 
+	LoadLoginRateLimitConfig(cfgFile)
+
 	return config, nil
+}
+
+func LoadLoginRateLimitConfig(cfg *ini.File) {
+	section := cfg.Section("login_rate_limit")
+	LoginRateLimit = section.Key("limit").MustInt(5)
+	LoginRateWindowSeconds = section.Key("window_seconds").MustInt(60)
 }
 
 // GetDefaultConfigFilePath returns the defaule config file path

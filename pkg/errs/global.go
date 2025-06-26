@@ -25,6 +25,7 @@ var (
 	ErrNoFilesUpload                   = NewNormalError(NormalSubcategoryGlobal, 15, http.StatusBadRequest, "no files uploaded")
 	ErrUploadedFileEmpty               = NewNormalError(NormalSubcategoryGlobal, 16, http.StatusBadRequest, "uploaded file is empty")
 	ErrExceedMaxUploadFileSize         = NewNormalError(NormalSubcategoryGlobal, 17, http.StatusBadRequest, "uploaded file size exceeds the maximum allowed size")
+	ErrRateLimitExceeded               = NewNormalError(NormalSubcategoryGlobal, 18, http.StatusNotAcceptable, "rate limit exceeded")
 )
 
 // GetParameterInvalidMessage returns specific error message for invalid parameter error

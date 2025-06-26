@@ -1,6 +1,10 @@
 package api
 
 import (
+	"net"
+	"sync"
+	"time"
+
 	"github.com/pquerna/otp/totp"
 
 	"github.com/mayswind/ezbookkeeping/pkg/avatars"
@@ -11,6 +15,31 @@ import (
 	"github.com/mayswind/ezbookkeeping/pkg/services"
 	"github.com/mayswind/ezbookkeeping/pkg/settings"
 )
+
+var loginAttempts = make(map[string][]time.Time)
+var loginMutex sync.Mutex
+
+// Uses settings.LoginRateLimit and settings.LoginRateWindowSeconds loaded from ezbookkeeping.ini
+// to limit the number of login attempts from a single IP address.
+func isRateLimited(ip string) bool {
+	loginMutex.Lock()
+	defer loginMutex.Unlock()
+	now := time.Now()
+	attempts := loginAttempts[ip]
+	var newAttempts []time.Time
+	loginWindow := time.Duration(settings.LoginRateWindowSeconds) * time.Second
+	for _, t := range attempts {
+		if now.Sub(t) < loginWindow {
+			newAttempts = append(newAttempts, t)
+		}
+	}
+	if len(newAttempts) >= settings.LoginRateLimit {
+		loginAttempts[ip] = newAttempts
+		return true
+	}
+	loginAttempts[ip] = append(newAttempts, now)
+	return false
+}
 
 // AuthorizationsApi represents authorization api
 type AuthorizationsApi struct {
@@ -43,6 +72,11 @@ var (
 
 // AuthorizeHandler verifies and authorizes current login request
 func (a *AuthorizationsApi) AuthorizeHandler(c *core.WebContext) (any, *errs.Error) {
+	ip, _, _ := net.SplitHostPort(c.Request.RemoteAddr)
+	if isRateLimited(ip) {
+		log.Warnf(c, "[authorizations.AuthorizeHandler] rate limit exceeded for IP %s", ip)
+		return nil, errs.ErrRateLimitExceeded
+	}
 	var credential models.UserLoginRequest
 	err := c.ShouldBindJSON(&credential)
 
